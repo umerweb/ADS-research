@@ -166,7 +166,11 @@ class CP_KR_Research_Engine {
     private static function build_product_seed_phrases($profile) {
         $seeds = [trim((string)($profile['title'] ?? ''))];
         $seeds = array_merge($seeds, (array)($profile['approved_synonyms'] ?? []));
+        $seeds = array_merge($seeds, (array)($profile['fixed_seed_phrases'] ?? []));
         foreach (($profile['variations'] ?? []) as $variation) {
+            if (!empty($variation['seed_phrase'])) {
+                $seeds[] = trim((string)$variation['seed_phrase']);
+            }
             $name = trim((string)($variation['name'] ?? ''));
             if ('' !== $name && 0 !== strcasecmp($name, (string)($profile['title'] ?? ''))) {
                 $title = trim((string)($profile['title'] ?? ''));
@@ -346,24 +350,11 @@ class CP_KR_Research_Engine {
         $batch_size = max(1, min(10, (int)($settings['max_seeds_per_batch'] ?? 10)));
         $product_name = $profile['title'];
 
-        $size_seeds = self::build_size_seeds($profile);
-        foreach (array_chunk($size_seeds, $batch_size) as $batch) {
-            $ideas = CP_KR_Api_Client::generate_keyword_ideas('keyword', ['keywords' => $batch], $opts);
-            if (!is_wp_error($ideas)) {
-                self::store_ideas($job_id, $ideas, 'product_size_seed', implode('|', $batch), 'stage_6_variations');
-            }
-        }
-
+        $variation_seeds = [];
         foreach ($profile['variations'] as $variation) {
             $seeds = self::build_variation_seeds($product_name, $variation);
             if (empty($seeds)) continue;
-
-            foreach (array_chunk($seeds, $batch_size) as $batch) {
-                $ideas = CP_KR_Api_Client::generate_keyword_ideas('keyword', ['keywords' => $batch], $opts);
-                if (!is_wp_error($ideas)) {
-                    self::store_ideas($job_id, $ideas, 'variation_seed', implode('|', $batch), 'stage_6_variations', $variation['id']);
-                }
-            }
+            $variation_seeds = array_merge($variation_seeds, $seeds);
 
             CP_KR_DB::insert_variation_seed([
                 'job_id' => $job_id,
@@ -372,6 +363,14 @@ class CP_KR_Research_Engine {
                 'seed_phrases' => wp_json_encode($seeds),
                 'status' => 'completed',
             ]);
+        }
+
+        $all_seeds = array_values(array_unique(array_merge($variation_seeds, self::build_size_seeds($profile))));
+        foreach (array_chunk($all_seeds, $batch_size) as $batch) {
+            $ideas = CP_KR_Api_Client::generate_keyword_ideas('keyword', ['keywords' => $batch], $opts);
+            if (!is_wp_error($ideas)) {
+                self::store_ideas($job_id, $ideas, 'variation_seed', implode('|', $batch), 'stage_6_variations');
+            }
         }
         return 'stage_7_consolidate';
     }
@@ -409,6 +408,10 @@ class CP_KR_Research_Engine {
     }
 
     private static function build_variation_seeds($product_name, $variation) {
+        if (!empty($variation['seed_phrase'])) {
+            return [trim((string)$variation['seed_phrase'])];
+        }
+
         $name = trim((string)($variation['name'] ?? ''));
         if ('' !== $name && 0 !== strcasecmp($name, $product_name)) {
             return [false !== stripos($name, $product_name) ? $name : trim($product_name . ' ' . $name)];

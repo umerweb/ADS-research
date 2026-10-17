@@ -59,7 +59,8 @@ class CP_KR_Relevance {
     private static function identity_phrases($profile) {
         $phrases = array_merge(
             [trim((string)($profile['title'] ?? ''))],
-            array_map('trim', (array)($profile['approved_synonyms'] ?? []))
+            array_map('trim', (array)($profile['approved_synonyms'] ?? [])),
+            array_map('trim', (array)($profile['fixed_seed_phrases'] ?? []))
         );
         foreach (($profile['variations'] ?? []) as $variation) {
             if (!empty($variation['name'])) {

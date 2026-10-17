@@ -7,7 +7,6 @@ class CP_KR_Ajax {
     public static function init() {
         add_action('wp_ajax_cp_kr_search_products',  [__CLASS__, 'search_products']);
         add_action('wp_ajax_cp_kr_start_job',        [__CLASS__, 'start_job']);
-        add_action('wp_ajax_cp_kr_start_default_batch', [__CLASS__, 'start_default_batch']);
         add_action('wp_ajax_cp_kr_job_status',       [__CLASS__, 'job_status']);
         add_action('wp_ajax_cp_kr_test_credentials', [__CLASS__, 'test_credentials']);
         add_action('wp_ajax_cp_kr_update_candidate', [__CLASS__, 'update_candidate']);
@@ -91,44 +90,6 @@ class CP_KR_Ajax {
         wp_send_json_success([
             'job_id' => $job_id,
             'progress' => $progress,
-        ]);
-    }
-
-    public static function start_default_batch() {
-        self::check();
-        $job_ids = [];
-        $not_found = [];
-
-        foreach (CP_KR_Product_Profile::default_product_slugs() as $slug) {
-            $products = get_posts([
-                'post_type' => 'product',
-                'post_status' => 'publish',
-                'name' => $slug,
-                'posts_per_page' => 1,
-            ]);
-            if (empty($products)) {
-                $not_found[] = $slug;
-                continue;
-            }
-
-            $job_id = CP_KR_Research_Engine::create_job((int)$products[0]->ID, []);
-            if (is_wp_error($job_id)) {
-                $not_found[] = $slug;
-                continue;
-            }
-            $job_ids[] = (int)$job_id;
-        }
-
-        if (empty($job_ids)) {
-            wp_send_json_error([
-                'message' => 'Could not find any of the configured products in WooCommerce.',
-                'not_found' => $not_found,
-            ]);
-        }
-
-        wp_send_json_success([
-            'job_ids' => $job_ids,
-            'not_found' => $not_found,
         ]);
     }
 
