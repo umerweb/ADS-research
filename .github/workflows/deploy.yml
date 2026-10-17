@@ -23,5 +23,5 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftp
           port: 21
-          server-dir: public_html/staging/wp-content/plugins/cloud-packaging-keyword-research/
+          server-dir: staging/wp-content/plugins/cloud-packaging-keyword-research/
           dry-run: false
