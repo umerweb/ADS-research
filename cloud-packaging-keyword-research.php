@@ -3,7 +3,7 @@
  * Plugin Name: Cloud Packaging Keyword Research
  * Plugin URI:  https://cloudpackaging.co.uk/
  * Description: Automates Google Ads Keyword Planner research for WooCommerce products. Read-only: never modifies live campaigns, ad groups, ads, bids, or keywords.
- * Version:     1.0.0.6
+ * Version:     1.0.0.68989
  * Author:      Cloud Packaging
  * Requires at least: 6.0
  * Requires PHP: 8.0
