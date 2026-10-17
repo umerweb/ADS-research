@@ -195,6 +195,10 @@ class CP_KR_Ajax {
                 $rows = CP_KR_Exporter::sources($job_id);
                 $headers = ['Type','Value','Status','Error'];
                 break;
+            case 'complete':
+                $export = CP_KR_Exporter::complete_job($job_id);
+                if (empty($export)) wp_send_json_error('Job not found');
+                CP_KR_Exporter::csv($export['rows'], "cp-kr-complete-job{$job_id}.csv", $export['headers']);
             default:
                 wp_send_json_error('Invalid export type');
         }

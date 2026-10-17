@@ -107,6 +107,56 @@ class CP_KR_Exporter {
         return $out;
     }
 
+    public static function complete_job($job_id) {
+        $job = CP_KR_DB::get_job($job_id);
+        if (!$job) return [];
+
+        $records = CP_KR_DB::get_job_export_records($job_id);
+        $headers = [
+            'Record Type', 'Job ID', 'Record ID', 'Product ID', 'Keyword', 'Normalized Keyword',
+            'Status', 'Stage', 'Source Type', 'Source Value', 'Avg Monthly Searches',
+            'Low Bid Micros', 'High Bid Micros', 'Rejection Code', 'Reason', 'Detection Method',
+            'Relevance', 'Intent', 'Ranking Score', 'Error', 'Created At', 'Full Record JSON',
+        ];
+        $rows = [];
+        $rows[] = [
+            'job', $job->id, $job->id, $job->product_id, '', '', $job->status,
+            $job->current_stage, '', '', '', '', '', '', '', '', '', '', '',
+            $job->error_log, $job->created_at, wp_json_encode($job),
+        ];
+
+        foreach ($records as $record_type => $items) {
+            foreach ($items as $item) {
+                $rows[] = [
+                    $record_type,
+                    $item->job_id ?? $job->id,
+                    $item->id ?? '',
+                    $job->product_id,
+                    $item->keyword_text ?? '',
+                    $item->normalized_text ?? '',
+                    $item->review_status ?? $item->fetch_status ?? $item->status ?? '',
+                    $item->stage ?? $item->source_stage ?? '',
+                    $item->source_type ?? '',
+                    $item->source_value ?? '',
+                    $item->avg_monthly_searches ?? '',
+                    $item->low_top_of_page_bid_micros ?? '',
+                    $item->high_top_of_page_bid_micros ?? '',
+                    $item->rejection_code ?? '',
+                    $item->rejection_reason ?? $item->relevance_notes ?? $item->fetch_error ?? '',
+                    $item->detection_method ?? '',
+                    $item->relevance_rating ?? '',
+                    $item->commercial_intent ?? '',
+                    $item->ranking_score ?? '',
+                    $item->error_log ?? $item->fetch_error ?? '',
+                    $item->created_at ?? '',
+                    wp_json_encode($item),
+                ];
+            }
+        }
+
+        return ['headers' => $headers, 'rows' => $rows];
+    }
+
     private static function micros_to_gbp($micros) {
         if ($micros === null) return '';
         return number_format(((int)$micros) / 1000000, 2, '.', '');

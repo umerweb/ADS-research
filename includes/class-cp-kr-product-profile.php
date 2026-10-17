@@ -6,9 +6,20 @@ if ( ! defined( 'ABSPATH' ) ) {
 class CP_KR_Product_Profile {
 
     private const DEFAULT_SYNONYMS = [
-        'bubble-envelopes' => ['bubble mailers', 'padded envelopes', 'padded mailing envelopes'],
+        'bubble-envelopes' => [
+            'bubble mailers', 'padded envelopes', 'padded mailing envelopes', 'padded mailers',
+            'bubble bags', 'padded bags', 'bubble packaging', 'packaging bubble', 'packaging envelopes',
+            'shipping envelopes', 'packing envelopes', 'packaging mailers', 'bubble envelopes for shipping',
+            'padded envelopes for shipping', 'mailing bags',
+        ],
         'thermal-label-rolls' => ['thermal labels', 'thermal printer labels', 'label rolls'],
-        'arofol-bubble-envelopes' => ['bubble mailers', 'padded envelopes', 'padded mailing envelopes'],
+        'arofol-bubble-envelopes' => [
+            'arofol bubble envelopes', 'arofol padded envelopes', 'arofol mailers', 'bubble mailers',
+            'padded envelopes', 'padded mailing envelopes', 'padded mailers', 'bubble bags', 'padded bags',
+            'bubble packaging', 'packaging bubble', 'packaging envelopes', 'shipping envelopes',
+            'packing envelopes', 'packaging mailers', 'bubble envelopes for shipping',
+            'padded envelopes for shipping', 'mailing bags',
+        ],
         'small-bubble-wrap' => ['small bubble packaging', 'small bubble wrapping'],
         'mailing-bags' => ['postal bags', 'mail bags', 'mailing sacks'],
         'clear-bubble-bags' => ['bubble bags', 'clear bubble bags', 'bubble packaging bags'],

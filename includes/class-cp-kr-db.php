@@ -81,6 +81,25 @@ class CP_KR_DB {
         return $wpdb->get_results($sql);
     }
 
+    public static function get_job_export_records($job_id) {
+        global $wpdb;
+        $tables = [
+            'results' => 'cp_kr_results',
+            'candidates' => 'cp_kr_candidates',
+            'rejected' => 'cp_kr_rejected',
+            'sources' => 'cp_kr_sources',
+            'variation_seeds' => 'cp_kr_variation_seeds',
+        ];
+        $records = [];
+        foreach ($tables as $record_type => $table) {
+            $records[$record_type] = $wpdb->get_results($wpdb->prepare(
+                "SELECT * FROM {$wpdb->prefix}{$table} WHERE job_id = %d ORDER BY id ASC",
+                (int)$job_id
+            ));
+        }
+        return $records;
+    }
+
     public static function insert_candidate($d) {
         global $wpdb;
         $wpdb->insert($wpdb->prefix . 'cp_kr_candidates', $d);
