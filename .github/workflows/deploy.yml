@@ -24,4 +24,4 @@ jobs:
           protocol: ftp
           port: 21
           server-dir: public_html/staging/wp-content/plugins/cloud-packaging-keyword-research/
-          dry-run: true
+          dry-run: false
