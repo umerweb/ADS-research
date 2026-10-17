@@ -5,7 +5,8 @@ $brands = get_option('cp_kr_brand_list', []);
 $product_synonyms = get_option('cp_kr_product_synonyms', []);
 $product_synonym_lines = [];
 foreach ((array)$product_synonyms as $product_id => $terms) {
-    $product_synonym_lines[] = (int)$product_id . ' | ' . implode(', ', (array)$terms);
+    $product_key = ctype_digit((string)$product_id) ? (int)$product_id : sanitize_title($product_id);
+    $product_synonym_lines[] = $product_key . ' | ' . implode(', ', (array)$terms);
 }
 ?>
 <div class="wrap cp-kr-wrap">
@@ -38,8 +39,8 @@ foreach ((array)$product_synonyms as $product_id => $terms) {
                 <td><textarea name="brands" rows="10" class="large-text"><?php echo esc_textarea(implode("\n", (array)$brands)); ?></textarea></td></tr>
             <tr><th>Approved product synonyms</th>
                 <td>
-                    <textarea name="product_synonyms" rows="8" class="large-text" placeholder="123 | bubble mailers, padded envelopes"><?php echo esc_textarea(implode("\n", $product_synonym_lines)); ?></textarea>
-                    <p class="description">One product per line: WooCommerce product ID, a vertical bar, then comma-separated confirmed equivalent names. These terms are used as seeds and to validate keyword relevance. Do not enter guessed features or materials.</p>
+                    <textarea name="product_synonyms" rows="8" class="large-text" placeholder="123 | bubble mailers, padded envelopes&#10;bubble-envelopes | bubble mailers, padded envelopes"><?php echo esc_textarea(implode("\n", $product_synonym_lines)); ?></textarea>
+                    <p class="description">Optional additions: one product per line using its WooCommerce product ID or URL slug, a vertical bar, then comma-separated confirmed equivalent names. The plugin also includes conservative defaults for the listed Cloud Packaging products. These terms become seeds and relevance matches; do not enter guessed features or materials.</p>
                 </td></tr>
         </table>
         <?php submit_button('Save Settings'); ?>

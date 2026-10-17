@@ -61,12 +61,12 @@ class CP_KR_Admin {
                 $lines = preg_split('/\r\n|\r|\n/', wp_unslash($_POST['product_synonyms']));
                 foreach ($lines as $line) {
                     if (false === strpos($line, '|')) continue;
-                    [$product_id, $terms] = array_map('trim', explode('|', $line, 2));
-                    $product_id = absint($product_id);
-                    if (!$product_id) continue;
+                    [$product_key, $terms] = array_map('trim', explode('|', $line, 2));
+                    $product_key = ctype_digit($product_key) ? absint($product_key) : sanitize_title($product_key);
+                    if (empty($product_key)) continue;
 
                     $terms = array_filter(array_map('sanitize_text_field', array_map('trim', explode(',', $terms))));
-                    if ($terms) $synonyms[$product_id] = array_values(array_unique($terms));
+                    if ($terms) $synonyms[$product_key] = array_values(array_unique($terms));
                 }
                 update_option('cp_kr_product_synonyms', $synonyms);
             }
