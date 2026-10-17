@@ -33,7 +33,7 @@ $sources = CP_KR_DB::get_sources($job_id);
         <table class="widefat striped cp-kr-table">
             <thead><tr>
                 <th>Keyword</th><th>Vol</th><th>Low £</th><th>High £</th><th>Comp</th>
-                <th>Rel</th><th>Intent</th><th>Score</th><th>Status</th><th>Actions</th>
+                <th>Rel</th><th>Intent</th><th>Score</th><th>Status / Metric Flags</th><th>Actions</th>
             </tr></thead>
             <tbody>
             <?php foreach ($candidates as $c):
@@ -49,7 +49,12 @@ $sources = CP_KR_DB::get_sources($job_id);
                     <td><?php echo esc_html($c->relevance_rating); ?></td>
                     <td><?php echo esc_html($c->commercial_intent); ?></td>
                     <td><?php echo esc_html(number_format((float)$c->ranking_score, 2)); ?></td>
-                    <td><?php echo esc_html($c->review_status); ?></td>
+                    <td>
+                        <?php echo esc_html($c->review_status); ?>
+                        <?php if (!empty($c->relevance_notes)): ?>
+                            <br><small><?php echo esc_html($c->relevance_notes); ?></small>
+                        <?php endif; ?>
+                    </td>
                     <td>
                         <button class="button button-small cp-kr-accept" data-id="<?php echo (int)$c->id; ?>">Accept</button>
                         <button class="button button-small cp-kr-reject" data-id="<?php echo (int)$c->id; ?>">Reject</button>

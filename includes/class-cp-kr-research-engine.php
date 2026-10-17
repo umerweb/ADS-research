@@ -59,6 +59,8 @@ class CP_KR_Research_Engine {
                     $next = self::stage_6($job_id, $profile, $settings);
                     break;
                 case 'stage_7_consolidate':
+                    $next = self::stage_7($job_id, $profile, $settings);
+                    break;
                 case 'stage_8_brand':
                 case 'completed':
                 default:
@@ -122,10 +124,28 @@ class CP_KR_Research_Engine {
 
     private static function stage_1($job_id, $profile, $settings) {
         $opts = self::api_opts($settings);
-        $data = CP_KR_Api_Client::generate_keyword_ideas('url', ['url' => $profile['permalink']], $opts);
+        $seeds = self::build_product_seed_phrases($profile);
+        $data = CP_KR_Api_Client::generate_keyword_ideas('keyword_url', [
+            'url' => $profile['canonical_url'],
+            'keywords' => array_slice($seeds, 0, 20),
+        ], $opts);
         if (is_wp_error($data)) return $data;
-        self::store_ideas($job_id, $data, 'product_url', $profile['permalink'], 'stage_1_product_url');
+        self::store_ideas($job_id, $data, 'product_name_seed', implode(' | ', array_slice($seeds, 0, 20)), 'stage_1_product_url');
         return 'stage_2_competitors';
+    }
+
+    private static function build_product_seed_phrases($profile) {
+        $seeds = [trim((string)($profile['title'] ?? ''))];
+        $seeds = array_merge($seeds, (array)($profile['approved_synonyms'] ?? []));
+        foreach (($profile['variations'] ?? []) as $variation) {
+            $name = trim((string)($variation['name'] ?? ''));
+            if ('' !== $name && 0 !== strcasecmp($name, (string)($profile['title'] ?? ''))) {
+                $title = trim((string)($profile['title'] ?? ''));
+                $seeds[] = false !== stripos($name, $title) ? $name : trim($title . ' ' . $name);
+            }
+        }
+
+        return array_values(array_unique(array_filter($seeds)));
     }
 
     private static function stage_2($job_id, $profile, $settings) {
@@ -164,8 +184,14 @@ class CP_KR_Research_Engine {
         return 'stage_3_filter';
     }
 
-    private static function stage_3($job_id, $profile, $settings) {
+    private static function stage_3($job_id, $profile, $settings, $source_stages = null) {
         $results = CP_KR_DB::get_results($job_id);
+        if (null !== $source_stages) {
+            $results = array_filter($results, static function ($result) use ($source_stages) {
+                return in_array($result->stage, $source_stages, true);
+            });
+        }
+        $existing_keywords = null !== $source_stages ? CP_KR_DB::get_reviewed_keyword_keys($job_id) : [];
         $grouped = [];
 
         foreach ($results as $r) {
@@ -197,6 +223,10 @@ class CP_KR_Research_Engine {
         $max_bid = (int)($settings['max_bid_micros'] ?? 3000000);
 
         foreach ($grouped as $g) {
+            if (isset($existing_keywords[$g['normalized_text']])) {
+                continue;
+            }
+
             $brand = CP_KR_Brand_Exclusion::check($g['keyword_text']);
             if ($brand['excluded']) {
                 CP_KR_DB::insert_rejected([
@@ -207,40 +237,28 @@ class CP_KR_Research_Engine {
                 ]);
                 continue;
             }
-            if ($g['avg'] === null) {
+
+            $rel = CP_KR_Relevance::evaluate($g['keyword_text'], $profile);
+            if ('irrelevant' === $rel['rating']) {
                 CP_KR_DB::insert_rejected([
                     'job_id'=>$job_id,'keyword_text'=>$g['keyword_text'],'normalized_text'=>$g['normalized_text'],
-                    'rejection_code'=>'missing_search_volume','rejection_reason'=>'No volume metric returned.',
-                    'detection_method'=>'api','source_stage'=>implode(',', $g['stages']),
-                ]);
-                continue;
-            }
-            if ($g['avg'] < $min_vol) {
-                CP_KR_DB::insert_rejected([
-                    'job_id'=>$job_id,'keyword_text'=>$g['keyword_text'],'normalized_text'=>$g['normalized_text'],
-                    'rejection_code'=>'below_min_volume','rejection_reason'=>'Volume '.$g['avg'].' < '.$min_vol,
-                    'detection_method'=>'numeric','source_stage'=>implode(',', $g['stages']),
-                ]);
-                continue;
-            }
-            if ($g['high'] === null) {
-                CP_KR_DB::insert_rejected([
-                    'job_id'=>$job_id,'keyword_text'=>$g['keyword_text'],'normalized_text'=>$g['normalized_text'],
-                    'rejection_code'=>'missing_high_bid','rejection_reason'=>'No high-range bid returned.',
-                    'detection_method'=>'api','source_stage'=>implode(',', $g['stages']),
-                ]);
-                continue;
-            }
-            if ($g['high'] > $max_bid) {
-                CP_KR_DB::insert_rejected([
-                    'job_id'=>$job_id,'keyword_text'=>$g['keyword_text'],'normalized_text'=>$g['normalized_text'],
-                    'rejection_code'=>'high_bid_exceeds','rejection_reason'=>'High bid exceeds threshold.',
-                    'detection_method'=>'numeric','source_stage'=>implode(',', $g['stages']),
+                    'rejection_code'=>'product_name_mismatch','rejection_reason'=>$rel['notes'],
+                    'detection_method'=>'product_name_match','source_stage'=>implode(',', $g['stages']),
                 ]);
                 continue;
             }
 
-            $rel = CP_KR_Relevance::evaluate($g['keyword_text'], $profile);
+            $metric_flags = [];
+            if ($g['avg'] === null) {
+                $metric_flags[] = 'No search-volume data returned';
+            } elseif ($g['avg'] < $min_vol) {
+                $metric_flags[] = 'Low volume: ' . $g['avg'] . ' searches/month (configured minimum: ' . $min_vol . ')';
+            }
+            if ($g['high'] === null) {
+                $metric_flags[] = 'No high-range bid data returned';
+            } elseif ($g['high'] > $max_bid) {
+                $metric_flags[] = 'High bid exceeds configured maximum of £' . number_format($max_bid / 1000000, 2);
+            }
 
             CP_KR_DB::insert_candidate([
                 'job_id' => $job_id,
@@ -255,16 +273,16 @@ class CP_KR_Research_Engine {
                 'low_top_of_page_bid_micros' => $g['low'],
                 'high_top_of_page_bid_micros' => $g['high'],
                 'relevance_rating' => $rel['rating'],
-                'relevance_notes' => $rel['notes'],
+                'relevance_notes' => $rel['notes'] . (empty($metric_flags) ? '' : ' Metrics: ' . implode('; ', $metric_flags) . '.'),
                 'commercial_intent' => $rel['commercial_intent'],
-                'review_status' => 'pending_review',
+                'review_status' => empty($metric_flags) ? 'pending_review' : 'needs_metrics',
             ]);
         }
         return 'stage_4_top_seeds';
     }
 
     private static function stage_4($job_id, $profile, $settings) {
-        $candidates = CP_KR_DB::get_candidates($job_id, ['limit' => 5000]);
+        $candidates = CP_KR_DB::get_candidates($job_id, ['review_status' => 'pending_review', 'limit' => 5000]);
         $scored = CP_KR_Scoring::rank($candidates, $profile, $settings);
         $top = array_slice($scored, 0, 10);
 
@@ -321,17 +339,31 @@ class CP_KR_Research_Engine {
         return 'stage_7_consolidate';
     }
 
-    private static function build_variation_seeds($product_name, $variation) {
-        $seeds = [];
-        $attrs = $variation['attributes'] ?? [];
-        foreach ($attrs as $key => $val) {
-            $key_clean = str_replace('attribute_', '', $key);
-            $key_clean = str_replace(['pa_', '-'], ['', ' '], $key_clean);
-            if ('' === trim((string)$val)) continue;
-            $seeds[] = $product_name . ' ' . $val;
-            $seeds[] = $key_clean . ' ' . $val;
+    private static function stage_7($job_id, $profile, $settings) {
+        self::stage_3($job_id, $profile, $settings, ['stage_5_expansion', 'stage_6_variations']);
+
+        $candidates = CP_KR_DB::get_candidates($job_id, ['limit' => 5000]);
+        $scored = CP_KR_Scoring::rank($candidates, $profile, $settings);
+        foreach ($scored as $item) {
+            CP_KR_DB::update_candidate($item['candidate']->id, [
+                'ranking_score' => $item['score'],
+                'score_factors' => wp_json_encode($item['factors']),
+            ]);
         }
-        return array_slice(array_values(array_unique(array_filter($seeds))), 0, 20);
+
+        return null;
+    }
+
+    private static function build_variation_seeds($product_name, $variation) {
+        $name = trim((string)($variation['name'] ?? ''));
+        if ('' !== $name && 0 !== strcasecmp($name, $product_name)) {
+            return [false !== stripos($name, $product_name) ? $name : trim($product_name . ' ' . $name)];
+        }
+
+        $values = array_filter(array_map('trim', (array)($variation['attributes'] ?? [])));
+        if (empty($values)) return [];
+
+        return [trim($product_name . ' ' . implode(' ', $values))];
     }
 
     private static function api_opts($settings) {

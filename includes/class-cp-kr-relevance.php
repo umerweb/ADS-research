@@ -2,93 +2,110 @@
 if (!defined('ABSPATH')) exit;
 
 class CP_KR_Relevance {
+    private const BUYING_MODIFIERS = [
+        'buy', 'buying', 'price', 'prices', 'cheap', 'wholesale', 'bulk', 'order', 'orders',
+        'supplier', 'suppliers', 'uk', 'online', 'sale', 'sales', 'discount', 'discounts',
+        'delivery', 'custom', 'printed', 'personalised', 'personalized', 'near', 'me',
+    ];
+
     public static function evaluate($keyword, $profile) {
-        $kw = mb_strtolower($keyword);
-        $kw_tokens = preg_split('/\s+/', preg_replace('/[^a-z0-9\s]/', ' ', $kw));
-        $kw_tokens = array_values(array_filter($kw_tokens, fn($t) => strlen($t) >= 3));
+        $keyword_tokens = self::tokens($keyword);
+        $content_tokens = array_values(array_diff($keyword_tokens, self::BUYING_MODIFIERS));
+        $phrases = self::identity_phrases($profile);
+        $best_coverage = 0.0;
+        $best_precision = 0.0;
+        $best_matches = 0;
+        $best_required = 1;
 
-        $p_tokens = self::profile_tokens($profile);
-        $matched = array_intersect($kw_tokens, $p_tokens);
-        $match_ratio = count($kw_tokens) > 0 ? count($matched) / count($kw_tokens) : 0;
+        foreach ($phrases as $phrase) {
+            $phrase_tokens = self::tokens($phrase);
+            if (!$phrase_tokens) continue;
 
-        $notes = [];
-        $rating = 'review';
+            $matches = count(array_intersect($phrase_tokens, $content_tokens));
+            $coverage = $matches / count($phrase_tokens);
+            $precision = count($content_tokens) > 0 ? $matches / count($content_tokens) : 0.0;
 
-        if ($match_ratio >= 0.6) {
-            $rating = 'high';
-            $notes[] = 'Strong semantic match to product profile.';
-        } elseif ($match_ratio >= 0.3) {
-            $rating = 'medium';
-            $notes[] = 'Partial match; contextual assessment recommended.';
-        } elseif (self::has_category_match($kw, $profile)) {
-            $rating = 'medium';
-            $notes[] = 'Category-level match only.';
-        } else {
-            $rating = 'review';
-            $notes[] = 'Weak or no overlap with product data.';
+            if (min($coverage, $precision) > min($best_coverage, $best_precision)) {
+                $best_coverage = $coverage;
+                $best_precision = $precision;
+                $best_matches = $matches;
+                $best_required = count($phrase_tokens) > 1 ? 2 : 1;
+            }
         }
 
-        if (self::size_conflict($kw, $profile)) {
+        $relevant = $best_matches >= $best_required
+            && $best_coverage >= 0.5
+            && $best_precision >= 0.6;
+
+        if (!$relevant) {
             $rating = 'irrelevant';
-            $notes[] = 'Size or dimension conflicts with confirmed product specs.';
+            $notes = 'Keyword does not sufficiently match the product name or a variation name.';
+        } elseif ($best_coverage >= 0.75 && $best_precision >= 0.75) {
+            $rating = 'high';
+            $notes = 'Strong match to the product name or a variation name.';
+        } else {
+            $rating = 'medium';
+            $notes = 'Partial product-name match; verify the extra terms are relevant.';
         }
 
         return [
             'rating' => $rating,
-            'notes' => implode(' ', $notes),
-            'commercial_intent' => self::intent($kw),
-            'match_ratio' => $match_ratio,
+            'notes' => $notes,
+            'commercial_intent' => self::intent(mb_strtolower($keyword)),
+            'match_ratio' => min($best_coverage, $best_precision),
         ];
     }
 
-    private static function profile_tokens($p) {
-        $parts = [
-            $p['title'] ?? '',
-            $p['short_desc'] ?? '',
-            $p['full_desc'] ?? '',
-            implode(' ', $p['categories'] ?? []),
-            implode(' ', $p['tags'] ?? []),
-        ];
-        if (!empty($p['attributes']) && is_array($p['attributes'])) {
-            foreach ($p['attributes'] as $v) {
-                $parts[] = is_array($v) ? implode(' ', $v) : (string)$v;
-            }
-        }
-        $text = strtolower(implode(' ', array_filter($parts)));
-        $t = preg_split('/\s+/', preg_replace('/[^a-z0-9\s]/', ' ', $text));
-        return array_unique(array_filter($t, fn($x) => strlen($x) >= 3));
-    }
-
-    private static function has_category_match($kw, $p) {
-        foreach (($p['categories'] ?? []) as $c) {
-            $parts = preg_split('/\s+/', strtolower($c));
-            foreach ($parts as $part) {
-                if (strlen($part) >= 4 && false !== strpos($kw, $part)) return true;
-            }
-        }
-        return false;
-    }
-
-    private static function size_conflict($kw, $p) {
-        if (!preg_match('/(\d+)\s*(mm|cm|inch|in)/i', $kw, $m)) return false;
-        $val = (int)$m[1];
-        $unit = strtolower($m[2]);
-        $profile_text = strtolower(
-            ($p['title'] ?? '') . ' ' . ($p['short_desc'] ?? '') . ' ' . ($p['full_desc'] ?? '')
+    private static function identity_phrases($profile) {
+        $phrases = array_merge(
+            [trim((string)($profile['title'] ?? ''))],
+            array_map('trim', (array)($profile['approved_synonyms'] ?? []))
         );
-        if (preg_match_all('/(\d+)\s*' . preg_quote($unit, '/') . '\b/i', $profile_text, $matches)) {
-            foreach ($matches[1] as $psize) {
-                if ((int)$psize === $val) return false;
+        foreach (($profile['variations'] ?? []) as $variation) {
+            if (!empty($variation['name'])) {
+                $name = trim((string)$variation['name']);
+                $title = trim((string)($profile['title'] ?? ''));
+                $phrases[] = '' !== $title && false === stripos($name, $title)
+                    ? trim($title . ' ' . $name)
+                    : $name;
             }
         }
-        return false;
+
+        return array_values(array_unique(array_filter($phrases)));
     }
 
-    private static function intent($kw) {
-        $commercial = ['buy','price','cheap','wholesale','bulk','order','supplier','uk','discount','sale','custom','printed','personalised'];
-        $transactional = ['near me','same day','next day','fast','delivery'];
-        foreach ($commercial as $c) if (false !== strpos($kw, $c)) return 'commercial';
-        foreach ($transactional as $t) if (false !== strpos($kw, $t)) return 'transactional';
+    private static function tokens($text) {
+        $text = mb_strtolower((string)$text);
+        $tokens = preg_split('/\s+/', preg_replace('/[^a-z0-9\s]/', ' ', $text));
+        $tokens = array_filter($tokens, static function ($token) {
+            return strlen($token) >= 3;
+        });
+
+        $tokens = array_map(static function ($token) {
+            if (strlen($token) > 4 && str_ends_with($token, 'ies')) {
+                return substr($token, 0, -3) . 'y';
+            }
+            if (strlen($token) > 4 && preg_match('/(x|z|ch|sh|ss)es$/', $token)) {
+                return substr($token, 0, -2);
+            }
+            if (strlen($token) > 4 && str_ends_with($token, 's') && !str_ends_with($token, 'ss')) {
+                return substr($token, 0, -1);
+            }
+            return $token;
+        }, $tokens);
+
+        return array_values(array_unique($tokens));
+    }
+
+    private static function intent($keyword) {
+        $commercial = ['buy', 'price', 'cheap', 'wholesale', 'bulk', 'order', 'supplier', 'uk', 'discount', 'sale', 'custom', 'printed', 'personalised', 'personalized'];
+        $transactional = ['near me', 'same day', 'next day', 'fast', 'delivery'];
+        foreach ($commercial as $term) {
+            if (false !== strpos($keyword, $term)) return 'commercial';
+        }
+        foreach ($transactional as $term) {
+            if (false !== strpos($keyword, $term)) return 'transactional';
+        }
         return 'informational';
     }
 }

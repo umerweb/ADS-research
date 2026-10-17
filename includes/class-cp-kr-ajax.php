@@ -181,11 +181,11 @@ class CP_KR_Ajax {
         switch ($type) {
             case 'approved':
                 $rows = CP_KR_Exporter::approved($job_id);
-                $headers = ['Keyword','Product ID','Variations','Avg Monthly Searches','Low Bid (GBP)','High Bid (GBP)','Competition','Competition Index','Sources','Stages','Relevance','Intent','Score','Status','Notes'];
+                $headers = ['Keyword','Product ID','Variations','Avg Monthly Searches','Low Bid (GBP)','High Bid (GBP)','Competition','Competition Index','Sources','Stages','Relevance','Relevance Notes','Intent','Score','Status','Review Notes'];
                 break;
             case 'all':
                 $rows = CP_KR_Exporter::all_candidates($job_id);
-                $headers = ['Keyword','Avg Monthly Searches','Low Bid','High Bid','Competition','Relevance','Intent','Score','Status','Sources','Stages'];
+                $headers = ['Keyword','Avg Monthly Searches','Low Bid','High Bid','Competition','Relevance','Relevance / Metric Notes','Intent','Score','Status','Sources','Stages'];
                 break;
             case 'rejected':
                 $rows = CP_KR_Exporter::rejected($job_id);

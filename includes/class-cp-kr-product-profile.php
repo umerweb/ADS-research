@@ -14,6 +14,7 @@ class CP_KR_Product_Profile {
         $profile = array(
             'id'              => $product->get_id(),
             'title'           => $product->get_name(),
+            'approved_synonyms' => get_option('cp_kr_product_synonyms', [])[$product->get_id()] ?? [],
             'permalink'       => get_permalink( $product->get_id() ),
             'canonical_url'   => wp_get_canonical_url( $product->get_id() ) ?: get_permalink( $product->get_id() ),
             'short_desc'      => wp_strip_all_tags( $product->get_short_description() ),
@@ -42,6 +43,7 @@ class CP_KR_Product_Profile {
                 }
                 $profile['variations'][] = array(
                     'id'         => $variation_id,
+                    'name'       => $variation->get_name(),
                     'attributes' => $attrs,
                     'sku'        => $variation->get_sku(),
                     'price'      => $variation->get_price(),

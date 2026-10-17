@@ -87,6 +87,17 @@ class CP_KR_DB {
         return $wpdb->insert_id;
     }
 
+    public static function get_reviewed_keyword_keys($job_id) {
+        global $wpdb;
+        $sql = $wpdb->prepare(
+            "SELECT normalized_text FROM {$wpdb->prefix}cp_kr_candidates WHERE job_id = %d
+             UNION SELECT normalized_text FROM {$wpdb->prefix}cp_kr_rejected WHERE job_id = %d",
+            (int)$job_id,
+            (int)$job_id
+        );
+        return array_fill_keys((array)$wpdb->get_col($sql), true);
+    }
+
     public static function update_candidate($id, $d) {
         global $wpdb;
         return $wpdb->update($wpdb->prefix . 'cp_kr_candidates', $d, ['id' => (int)$id]);

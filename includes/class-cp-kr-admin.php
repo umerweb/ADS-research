@@ -55,6 +55,21 @@ class CP_KR_Admin {
                 $brands = array_filter(array_map('trim', explode("\n", wp_unslash($_POST['brands']))));
                 update_option('cp_kr_brand_list', array_values($brands));
             }
+
+            if (isset($_POST['product_synonyms'])) {
+                $synonyms = [];
+                $lines = preg_split('/\r\n|\r|\n/', wp_unslash($_POST['product_synonyms']));
+                foreach ($lines as $line) {
+                    if (false === strpos($line, '|')) continue;
+                    [$product_id, $terms] = array_map('trim', explode('|', $line, 2));
+                    $product_id = absint($product_id);
+                    if (!$product_id) continue;
+
+                    $terms = array_filter(array_map('sanitize_text_field', array_map('trim', explode(',', $terms))));
+                    if ($terms) $synonyms[$product_id] = array_values(array_unique($terms));
+                }
+                update_option('cp_kr_product_synonyms', $synonyms);
+            }
             echo '<div class="notice notice-success"><p>Settings saved.</p></div>';
         }
         include CP_KR_PLUGIN_DIR . 'admin/views/settings.php';

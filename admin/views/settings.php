@@ -2,6 +2,11 @@
 if (!defined('ABSPATH')) exit;
 $s = get_option('cp_kr_settings', []);
 $brands = get_option('cp_kr_brand_list', []);
+$product_synonyms = get_option('cp_kr_product_synonyms', []);
+$product_synonym_lines = [];
+foreach ((array)$product_synonyms as $product_id => $terms) {
+    $product_synonym_lines[] = (int)$product_id . ' | ' . implode(', ', (array)$terms);
+}
 ?>
 <div class="wrap cp-kr-wrap">
     <h1>Keyword Research Settings</h1>
@@ -31,6 +36,11 @@ $brands = get_option('cp_kr_brand_list', []);
                 <td><input type="number" name="max_requests_per_job" value="<?php echo (int)($s['max_requests_per_job'] ?? 200); ?>"></td></tr>
             <tr><th>Brand exclusion list (one per line)</th>
                 <td><textarea name="brands" rows="10" class="large-text"><?php echo esc_textarea(implode("\n", (array)$brands)); ?></textarea></td></tr>
+            <tr><th>Approved product synonyms</th>
+                <td>
+                    <textarea name="product_synonyms" rows="8" class="large-text" placeholder="123 | bubble mailers, padded envelopes"><?php echo esc_textarea(implode("\n", $product_synonym_lines)); ?></textarea>
+                    <p class="description">One product per line: WooCommerce product ID, a vertical bar, then comma-separated confirmed equivalent names. These terms are used as seeds and to validate keyword relevance. Do not enter guessed features or materials.</p>
+                </td></tr>
         </table>
         <?php submit_button('Save Settings'); ?>
     </form>
