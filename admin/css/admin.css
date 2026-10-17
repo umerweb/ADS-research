@@ -1,0 +1,27 @@
+.cp-kr-wrap h1 { margin-bottom: 18px; }
+.cp-kr-panel {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    padding: 18px 22px;
+    margin: 18px 0;
+}
+.cp-kr-panel h2 { margin-top: 0; }
+.cp-kr-error { color: #b32d2e; font-weight: 600; }
+.cp-kr-table td { vertical-align: middle; }
+#cp-kr-product-results {
+    margin-top: 6px;
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid #dcdcde;
+    background: #fff;
+    display: none;
+}
+#cp-kr-product-results.active { display: block; }
+#cp-kr-product-results .cp-kr-prod {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f1;
+}
+#cp-kr-product-results .cp-kr-prod:hover { background: #f6f7f7; }
+.cp-kr-ok { color: #1d7a3a; font-weight: 600; }
+.cp-kr-err { color: #b32d2e; font-weight: 600; }
