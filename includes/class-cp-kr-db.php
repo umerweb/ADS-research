@@ -29,6 +29,41 @@ class CP_KR_DB {
         ));
     }
 
+    public static function delete_job($job_id) {
+        global $wpdb;
+
+        $job_id = (int)$job_id;
+        if ($job_id <= 0 || !self::get_job($job_id)) {
+            return new WP_Error('cp_kr_job_not_found', 'Research job not found.');
+        }
+
+        $wpdb->query('START TRANSACTION');
+        $related_tables = [
+            'cp_kr_results',
+            'cp_kr_candidates',
+            'cp_kr_rejected',
+            'cp_kr_sources',
+            'cp_kr_variation_seeds',
+        ];
+
+        foreach ($related_tables as $table) {
+            $deleted = $wpdb->delete($wpdb->prefix . $table, ['job_id' => $job_id], ['%d']);
+            if (false === $deleted) {
+                $wpdb->query('ROLLBACK');
+                return new WP_Error('cp_kr_job_delete_failed', 'Could not delete all research job data.');
+            }
+        }
+
+        $deleted = $wpdb->delete($wpdb->prefix . 'cp_kr_jobs', ['id' => $job_id], ['%d']);
+        if (false === $deleted) {
+            $wpdb->query('ROLLBACK');
+            return new WP_Error('cp_kr_job_delete_failed', 'Could not delete the research job.');
+        }
+
+        $wpdb->query('COMMIT');
+        return true;
+    }
+
     public static function insert_result($d) {
         global $wpdb;
         $wpdb->insert($wpdb->prefix . 'cp_kr_results', $d);

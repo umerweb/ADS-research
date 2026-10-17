@@ -59,6 +59,7 @@
                         <a class="button button-small cp-kr-kick-row" data-id="<?php echo (int)$j->id; ?>" href="#">Run Stage</a>
                         <a class="button button-small" href="#" data-cp-kr-export="<?php echo (int)$j->id; ?>" data-type="approved">CSV Approved</a>
                         <a class="button button-small" href="#" data-cp-kr-export="<?php echo (int)$j->id; ?>" data-type="rejected">CSV Rejected</a>
+                        <button type="button" class="button button-small cp-kr-delete-job" data-id="<?php echo (int)$j->id; ?>">Delete Job &amp; Data</button>
                     </td>
                 </tr>
             <?php endforeach; ?>

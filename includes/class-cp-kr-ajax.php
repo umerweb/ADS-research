@@ -13,6 +13,7 @@ class CP_KR_Ajax {
         add_action('wp_ajax_cp_kr_export',           [__CLASS__, 'export']);
         add_action('wp_ajax_cp_kr_kick_job',         [__CLASS__, 'kick_job']);
         add_action('wp_ajax_cp_kr_complete_job',     [__CLASS__, 'complete_job']);
+        add_action('wp_ajax_cp_kr_delete_job',       [__CLASS__, 'delete_job']);
     }
 
     private static function check() {
@@ -109,6 +110,19 @@ class CP_KR_Ajax {
             'status' => 'completed',
             'current_stage' => 'completed',
         ]);
+        wp_send_json_success(['job_id' => $job_id]);
+    }
+
+    public static function delete_job() {
+        self::check();
+        $job_id = (int)($_POST['job_id'] ?? 0);
+        if (!$job_id) wp_send_json_error('Invalid job');
+
+        $result = CP_KR_DB::delete_job($job_id);
+        if (is_wp_error($result)) {
+            wp_send_json_error($result->get_error_message());
+        }
+
         wp_send_json_success(['job_id' => $job_id]);
     }
 

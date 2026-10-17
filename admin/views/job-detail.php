@@ -24,6 +24,7 @@ $sources = CP_KR_DB::get_sources($job_id);
             <a class="button" href="#" data-cp-kr-export="<?php echo (int)$job->id; ?>" data-type="all">Export All Candidates</a>
             <a class="button" href="#" data-cp-kr-export="<?php echo (int)$job->id; ?>" data-type="rejected">Export Rejected</a>
             <a class="button" href="#" data-cp-kr-export="<?php echo (int)$job->id; ?>" data-type="sources">Export Sources</a>
+            <button type="button" class="button button-secondary cp-kr-delete-job" data-id="<?php echo (int)$job->id; ?>">Delete Job &amp; All Data</button>
         </p>
     </div>
 

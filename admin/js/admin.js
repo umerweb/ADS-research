@@ -186,6 +186,28 @@ jQuery(function ($) {
         });
     });
 
+    $(document).on('click', '.cp-kr-delete-job', function () {
+        var $button = $(this);
+        var jobId = parseInt($button.data('id'), 10);
+        if (!jobId || !confirm('Permanently delete job #' + jobId + ' and all its results, candidates, rejected keywords, sources, and variation data? This cannot be undone.')) return;
+
+        $button.prop('disabled', true);
+        $.post(cpKr.ajax, { action: 'cp_kr_delete_job', nonce: cpKr.nonce, job_id: jobId }, function (res) {
+            if (res && res.success) {
+                if (activeJobId === jobId) {
+                    activeJobId = null;
+                }
+                window.location.href = 'admin.php?page=cp-kr';
+                return;
+            }
+            $button.prop('disabled', false);
+            alert('Could not delete job: ' + (res && res.data ? res.data : 'Unknown error'));
+        }).fail(function (xhr) {
+            $button.prop('disabled', false);
+            alert('Could not delete job (HTTP ' + xhr.status + '). Please try again.');
+        });
+    });
+
     $(document).on('click', '[data-cp-kr-export]', function (e) {
         e.preventDefault();
         var jobId = $(this).data('cp-kr-export');

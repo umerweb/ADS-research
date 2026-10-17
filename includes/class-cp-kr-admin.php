@@ -19,7 +19,7 @@ class CP_KR_Admin {
     public static function assets($hook) {
         if (false === strpos($hook, 'cp-kr')) return;
         wp_enqueue_style('cp-kr-admin', CP_KR_PLUGIN_URL . 'admin/css/admin.css', [], CP_KR_VERSION);
-        wp_enqueue_script('cp-kr-admin', CP_KR_PLUGIN_URL . 'admin/js/admin.js', ['jquery'], CP_KR_VERSION, true);
+        wp_enqueue_script('cp-kr-admin', CP_KR_PLUGIN_URL . 'admin/js/admin.js', ['jquery'], filemtime(CP_KR_PLUGIN_DIR . 'admin/js/admin.js'), true);
         wp_localize_script('cp-kr-admin', 'cpKr', [
             'ajax' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('cp_kr_ajax'),
