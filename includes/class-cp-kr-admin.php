@@ -47,7 +47,7 @@ class CP_KR_Admin {
             $s['language'] = sanitize_text_field($_POST['language'] ?? 'languageConstants/1000');
             $s['network'] = sanitize_text_field($_POST['network'] ?? 'GOOGLE_SEARCH');
             $s['include_adult'] = !empty($_POST['include_adult']);
-            $s['max_seeds_per_batch'] = (int)($_POST['max_seeds_per_batch'] ?? 10);
+            $s['max_seeds_per_batch'] = max(1, min(10, (int)($_POST['max_seeds_per_batch'] ?? 10)));
             $s['max_requests_per_job'] = (int)($_POST['max_requests_per_job'] ?? 200);
             update_option('cp_kr_settings', $s);
 

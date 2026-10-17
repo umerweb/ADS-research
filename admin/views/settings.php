@@ -32,7 +32,7 @@ foreach ((array)$product_synonyms as $product_id => $terms) {
             <tr><th>Include adult keywords</th>
                 <td><label><input type="checkbox" name="include_adult" <?php checked(!empty($s['include_adult'])); ?>> Enable</label></td></tr>
             <tr><th>Max seeds per batch</th>
-                <td><input type="number" name="max_seeds_per_batch" value="<?php echo (int)($s['max_seeds_per_batch'] ?? 10); ?>"></td></tr>
+                <td><input type="number" name="max_seeds_per_batch" value="<?php echo (int)($s['max_seeds_per_batch'] ?? 10); ?>" min="1" max="10"></td></tr>
             <tr><th>Max API requests per job</th>
                 <td><input type="number" name="max_requests_per_job" value="<?php echo (int)($s['max_requests_per_job'] ?? 200); ?>"></td></tr>
             <tr><th>Brand exclusion list (one per line)</th>
@@ -40,7 +40,7 @@ foreach ((array)$product_synonyms as $product_id => $terms) {
             <tr><th>Approved product synonyms</th>
                 <td>
                     <textarea name="product_synonyms" rows="8" class="large-text" placeholder="123 | bubble mailers, padded envelopes&#10;bubble-envelopes | bubble mailers, padded envelopes"><?php echo esc_textarea(implode("\n", $product_synonym_lines)); ?></textarea>
-                    <p class="description">Optional additions: one product per line using its WooCommerce product ID or URL slug, a vertical bar, then comma-separated confirmed equivalent names. The plugin also includes conservative defaults for the listed Cloud Packaging products. These terms become seeds and relevance matches; do not enter guessed features or materials.</p>
+                    <p class="description">Optional additions: one product per line using its WooCommerce product ID or URL slug, a vertical bar, then comma-separated confirmed equivalent names. The plugin also includes conservative defaults for the listed Cloud Packaging products. Product sizes/dimensions and pack quantities are additionally read from WooCommerce attributes, variations, and product descriptions and used as seeds. Do not enter guessed features or materials.</p>
                 </td></tr>
         </table>
         <?php submit_button('Save Settings'); ?>

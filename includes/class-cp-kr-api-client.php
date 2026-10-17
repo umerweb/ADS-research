@@ -97,6 +97,10 @@ class CP_KR_Api_Client {
     }
 
     public static function generate_keyword_ideas( $seed_type, $seed_data, $options = array() ) {
+        if ( in_array( $seed_type, array( 'keyword', 'keyword_url' ), true ) && count( $seed_data['keywords'] ?? array() ) > 10 ) {
+            return new WP_Error( 'cp_kr_seed_limit', 'Keyword Planner seed batches may contain no more than 10 keywords.' );
+        }
+
         $body = array(
             'language'             => $options['language'] ?? CP_KR_DEFAULT_LANGUAGE,
             'geoTargetConstants'   => $options['geoTargets'] ?? array( CP_KR_DEFAULT_GEO_TARGET ),

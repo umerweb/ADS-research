@@ -26,6 +26,10 @@ class CP_KR_Product_Profile {
         'pink-mailing-bags' => ['pink postal bags', 'pink mail bags'],
     ];
 
+    public static function default_product_slugs() {
+        return array_keys(self::DEFAULT_SYNONYMS);
+    }
+
     public static function build( $product_id ) {
         $product = wc_get_product( $product_id );
         if ( ! $product ) {
@@ -62,9 +66,7 @@ class CP_KR_Product_Profile {
         if ( $product->is_type( 'variable' ) ) {
             foreach ( $product->get_children() as $variation_id ) {
                 $variation = wc_get_product( $variation_id );
-                if ( ! $variation || ! $variation->is_purchasable() ) {
-                    continue;
-                }
+                if ( ! $variation ) continue;
                 $attrs = array();
                 foreach ( $variation->get_attributes() as $key => $value ) {
                     if ( '' !== $value ) {
@@ -81,7 +83,57 @@ class CP_KR_Product_Profile {
             }
         }
 
+        $profile['size_terms'] = self::get_size_terms($profile);
+
         return $profile;
+    }
+
+    private static function get_size_terms($profile) {
+        $terms = [];
+
+        foreach (($profile['attributes'] ?? []) as $name => $values) {
+            if (!self::is_size_attribute($name)) continue;
+            foreach ((array)$values as $value) {
+                $terms[] = trim((string)$value);
+            }
+        }
+
+        foreach (($profile['variations'] ?? []) as $variation) {
+            foreach ((array)($variation['attributes'] ?? []) as $name => $value) {
+                if (!self::is_size_attribute($name)) continue;
+                $terms[] = self::variation_attribute_value($name, $value);
+            }
+        }
+
+        $description = implode(' ', [
+            (string)($profile['title'] ?? ''),
+            (string)($profile['short_desc'] ?? ''),
+            (string)($profile['full_desc'] ?? ''),
+        ]);
+        preg_match_all('/\b\d+(?:[.,]\d+)?\s*(?:x|×)\s*\d+(?:[.,]\d+)?(?:\s*(?:x|×)\s*\d+(?:[.,]\d+)?)?\s*(?:mm|cm|m|inches?|inch|in)\b/i', $description, $dimensions);
+        preg_match_all('/\b\d+(?:[.,]\d+)?\s*(?:mm|cm|metres?|meters?|inches?|inch|in|microns?|micron|gauge|gsm)\b/i', $description, $measurements);
+        preg_match_all('/\b(?:pack\s+of\s+\d+|\d+\s*(?:pack|pk|rolls?|labels?|bags?|boxes|envelopes|sheets|pieces|pcs))\b/i', $description, $quantities);
+
+        $terms = array_merge($terms, $dimensions[0] ?? [], $measurements[0] ?? [], $quantities[0] ?? []);
+        $terms = array_map(static function ($term) {
+            return trim(preg_replace('/\s+/', ' ', str_replace(['×'], 'x', (string)$term)));
+        }, $terms);
+
+        return array_values(array_unique(array_filter($terms)));
+    }
+
+    private static function is_size_attribute($name) {
+        return (bool)preg_match('/size|dimension|width|length|height|depth|diameter|gauge|micron|thickness|quantity|pack/i', (string)$name);
+    }
+
+    private static function variation_attribute_value($name, $value) {
+        $taxonomy = preg_replace('/^attribute_/', '', (string)$name);
+        if (str_starts_with($taxonomy, 'pa_')) {
+            $term = get_term_by('slug', (string)$value, $taxonomy);
+            if ($term && !is_wp_error($term)) return $term->name;
+        }
+
+        return trim(str_replace(['-', '_'], ' ', (string)$value));
     }
 
     private static function get_attributes( $product ) {

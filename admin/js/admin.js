@@ -1,6 +1,11 @@
 jQuery(function ($) {
     var searchTimer;
     var activeJobId = null;
+    var batchJobQueue = [];
+    var batchFailedJobs = [];
+    var batchRunning = false;
+    var batchTotal = 0;
+    var batchProcessed = 0;
 
     // Detect whether we're already on a job detail page (URL has ?job_id=N)
     function getUrlJobId() {
@@ -40,6 +45,7 @@ jQuery(function ($) {
     });
 
     $('#cp-kr-start').on('click', function () {
+        if (batchRunning) { alert('Wait for the current product batch to finish.'); return; }
         var pid = $('#cp-kr-product-id').val();
         if (!pid) { alert('Select a product first.'); return; }
         var data = { action: 'cp_kr_start_job', nonce: cpKr.nonce, product_id: pid };
@@ -67,6 +73,55 @@ jQuery(function ($) {
         });
     });
 
+    $('#cp-kr-start-batch').on('click', function () {
+        if (batchRunning) { alert('A product batch is already running.'); return; }
+        if (!confirm('Create and run keyword research for all 18 configured products? Keep this page open until the batch finishes.')) return;
+
+        var $button = $(this);
+        var $msg = $('#cp-kr-start-msg').html('<span class="cp-kr-ok">Creating product research jobs…</span>');
+        $button.prop('disabled', true);
+        $.post(cpKr.ajax, { action: 'cp_kr_start_default_batch', nonce: cpKr.nonce }, function (res) {
+            $button.prop('disabled', false);
+            if (!res || !res.success || !res.data || !Array.isArray(res.data.job_ids) || !res.data.job_ids.length) {
+                var message = res && res.data && res.data.message ? res.data.message : 'Could not create product jobs.';
+                $msg.html('<span class="cp-kr-err">' + message + '</span>');
+                return;
+            }
+
+            batchJobQueue = res.data.job_ids.slice();
+            batchFailedJobs = [];
+            batchTotal = batchJobQueue.length;
+            batchProcessed = 0;
+            batchRunning = true;
+            var missing = res.data.not_found && res.data.not_found.length
+                ? ' Products not found: ' + res.data.not_found.join(', ') + '.'
+                : '';
+            $msg.html('<span class="cp-kr-ok">Running research for ' + batchTotal + ' products.' + missing + '</span>');
+            $('#cp-kr-progress').show();
+            runNextBatchJob();
+        }).fail(function (xhr) {
+            $button.prop('disabled', false);
+            $msg.html('<span class="cp-kr-err">Could not start batch (HTTP ' + xhr.status + ').</span>');
+        });
+    });
+
+    function runNextBatchJob() {
+        if (!batchJobQueue.length) {
+            batchRunning = false;
+            $('#cp-kr-batch-progress').text('Batch finished: ' + (batchTotal - batchFailedJobs.length) + ' completed, ' + batchFailedJobs.length + ' failed.');
+            $('#cp-kr-status').text('Batch complete');
+            window.location.href = 'admin.php?page=cp-kr';
+            return;
+        }
+
+        activeJobId = batchJobQueue.shift();
+        batchProcessed++;
+        $('#cp-kr-progress').data('job-id', activeJobId);
+        $('#cp-kr-batch-progress').text('Product job ' + batchProcessed + ' of ' + batchTotal + ' (job #' + activeJobId + ')');
+        $('#cp-kr-error').empty();
+        continueJob();
+    }
+
     function updateProgressFromResponse(p) {
         if (!p) return;
         $('#cp-kr-stage').text(p.stage || '—');
@@ -83,13 +138,23 @@ jQuery(function ($) {
             updateProgressFromResponse(p);
             refreshCounts();
             if (p.status === 'completed') {
+                if (batchRunning) {
+                    runNextBatchJob();
+                    return;
+                }
                 // Only redirect if we're NOT already on this job's detail page.
                 if (!isOnJobDetailPage(activeJobId)) {
                     window.location.href = 'admin.php?page=cp-kr&job_id=' + activeJobId;
                 }
                 return;
             }
-            if (p.status === 'failed') return;
+            if (p.status === 'failed') {
+                if (batchRunning) {
+                    batchFailedJobs.push(activeJobId);
+                    runNextBatchJob();
+                }
+                return;
+            }
             setTimeout(continueJob, 500);
         }).fail(function () {
             setTimeout(continueJob, 2000);

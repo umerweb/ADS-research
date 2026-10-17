@@ -25,14 +25,17 @@
         </table>
         <p>
             <button type="button" class="button button-primary" id="cp-kr-start">Start Research Job</button>
+            <button type="button" class="button" id="cp-kr-start-batch">Research All 18 Products</button>
             <button type="button" class="button" id="cp-kr-test">Test Credentials</button>
         </p>
+        <p class="description">The batch button creates one research job for each configured product URL. Keep this page open while jobs run.</p>
         <div id="cp-kr-start-msg"></div>
         <div id="cp-kr-test-result"></div>
     </div>
 
     <div class="cp-kr-panel" id="cp-kr-progress" style="display:none">
         <h2>Job Progress</h2>
+        <p id="cp-kr-batch-progress"></p>
         <p><strong>Stage:</strong> <span id="cp-kr-stage">—</span></p>
         <p><strong>Status:</strong> <span id="cp-kr-status">—</span></p>
         <p><strong>Candidates:</strong> <span id="cp-kr-cands">0</span> |

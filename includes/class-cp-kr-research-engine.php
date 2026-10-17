@@ -124,14 +124,43 @@ class CP_KR_Research_Engine {
 
     private static function stage_1($job_id, $profile, $settings) {
         $opts = self::api_opts($settings);
-        $seeds = self::build_product_seed_phrases($profile);
+        $job = CP_KR_DB::get_job($job_id);
+        $stage_data = json_decode($job->stage_data, true) ?: [];
+
+        if (!isset($stage_data['product_seed_phrases'])) {
+            $stage_data['product_seed_phrases'] = self::build_product_seed_phrases($profile);
+            $stage_data['product_seed_offset'] = 0;
+            $stage_data['product_url_scan_done'] = false;
+            CP_KR_DB::update_job($job_id, ['stage_data' => wp_json_encode($stage_data)]);
+        }
+
+        if (empty($stage_data['product_url_scan_done'])) {
+            $url_ideas = CP_KR_Api_Client::generate_keyword_ideas('url', ['url' => $profile['canonical_url']], $opts);
+            if (is_wp_error($url_ideas)) return $url_ideas;
+            self::store_ideas($job_id, $url_ideas, 'product_url_scan', $profile['canonical_url'], 'stage_1_product_url');
+            $stage_data['product_url_scan_done'] = true;
+            CP_KR_DB::update_job($job_id, ['stage_data' => wp_json_encode($stage_data)]);
+        }
+
+        $seeds = (array)$stage_data['product_seed_phrases'];
+        $offset = (int)($stage_data['product_seed_offset'] ?? 0);
+        if ($offset >= count($seeds)) return 'stage_2_competitors';
+
+        $batch_size = max(1, min(10, (int)($settings['max_seeds_per_batch'] ?? 10)));
+        $batch = array_slice($seeds, $offset, $batch_size);
         $data = CP_KR_Api_Client::generate_keyword_ideas('keyword_url', [
             'url' => $profile['canonical_url'],
-            'keywords' => array_slice($seeds, 0, 20),
+            'keywords' => $batch,
         ], $opts);
         if (is_wp_error($data)) return $data;
-        self::store_ideas($job_id, $data, 'product_name_seed', implode(' | ', array_slice($seeds, 0, 20)), 'stage_1_product_url');
-        return 'stage_2_competitors';
+
+        self::store_ideas($job_id, $data, 'product_fixed_seed', implode(' | ', $batch), 'stage_1_product_url');
+        $stage_data['product_seed_offset'] = $offset + count($batch);
+        CP_KR_DB::update_job($job_id, ['stage_data' => wp_json_encode($stage_data)]);
+
+        return $stage_data['product_seed_offset'] >= count($seeds)
+            ? 'stage_2_competitors'
+            : 'stage_1_product_url';
     }
 
     private static function build_product_seed_phrases($profile) {
@@ -314,8 +343,16 @@ class CP_KR_Research_Engine {
 
     private static function stage_6($job_id, $profile, $settings) {
         $opts = self::api_opts($settings);
-        $batch_size = (int)($settings['max_seeds_per_batch'] ?? 10);
+        $batch_size = max(1, min(10, (int)($settings['max_seeds_per_batch'] ?? 10)));
         $product_name = $profile['title'];
+
+        $size_seeds = self::build_size_seeds($profile);
+        foreach (array_chunk($size_seeds, $batch_size) as $batch) {
+            $ideas = CP_KR_Api_Client::generate_keyword_ideas('keyword', ['keywords' => $batch], $opts);
+            if (!is_wp_error($ideas)) {
+                self::store_ideas($job_id, $ideas, 'product_size_seed', implode('|', $batch), 'stage_6_variations');
+            }
+        }
 
         foreach ($profile['variations'] as $variation) {
             $seeds = self::build_variation_seeds($product_name, $variation);
@@ -339,6 +376,23 @@ class CP_KR_Research_Engine {
         return 'stage_7_consolidate';
     }
 
+    private static function build_size_seeds($profile) {
+        $anchors = array_merge(
+            [trim((string)($profile['title'] ?? ''))],
+            (array)($profile['approved_synonyms'] ?? [])
+        );
+        $seeds = [];
+        foreach ((array)($profile['size_terms'] ?? []) as $size) {
+            foreach ($anchors as $anchor) {
+                $anchor = trim((string)$anchor);
+                $size = trim((string)$size);
+                if ('' !== $anchor && '' !== $size) $seeds[] = $anchor . ' ' . $size;
+            }
+        }
+
+        return array_slice(array_values(array_unique($seeds)), 0, 100);
+    }
+
     private static function stage_7($job_id, $profile, $settings) {
         self::stage_3($job_id, $profile, $settings, ['stage_5_expansion', 'stage_6_variations']);
 
@@ -360,10 +414,20 @@ class CP_KR_Research_Engine {
             return [false !== stripos($name, $product_name) ? $name : trim($product_name . ' ' . $name)];
         }
 
-        $values = array_filter(array_map('trim', (array)($variation['attributes'] ?? [])));
+        $values = [];
+        foreach ((array)($variation['attributes'] ?? []) as $key => $value) {
+            if (self::is_size_attribute($key)) {
+                $values[] = trim((string)$value);
+            }
+        }
+        $values = array_values(array_filter($values));
         if (empty($values)) return [];
 
         return [trim($product_name . ' ' . implode(' ', $values))];
+    }
+
+    private static function is_size_attribute($name) {
+        return (bool)preg_match('/size|dimension|width|length|height|depth|diameter|gauge|micron|thickness|quantity|pack/i', (string)$name);
     }
 
     private static function api_opts($settings) {
